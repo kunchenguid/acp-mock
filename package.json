@@ -1,0 +1,58 @@
+{
+  "name": "acp-mock",
+  "version": "0.0.0",
+  "description": "Deterministic ACP mock agent for end-to-end tests",
+  "type": "module",
+  "bin": {
+    "acp-mock": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown src/index.ts src/cli.ts --format esm --dts --clean --platform node --target node20 --no-fixedExtension",
+    "dev": "tsdown src/index.ts src/cli.ts --format esm --dts --watch --platform node --target node20 --no-fixedExtension",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.21.0",
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "prettier": "^3.0.0",
+    "tsdown": "^0.21.7",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^4.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kunchenguid/acp-mock.git"
+  },
+  "license": "MIT"
+}
