@@ -97,6 +97,7 @@ npm run build
 - **Stdout is protocol-only** - normal runs write only ACP NDJSON to stdout.
 - **Logs are opt-in** - pass `--event-log <path>` when tests need lifecycle assertions.
 - **Traces are normalized** - pass `--replay-runtime-events <path>` with one runtime event per line.
+- **Side effects are turn-level** - `--append-file` runs after a successful synthetic or replayed turn.
 
 ## CLI Reference
 
@@ -114,6 +115,7 @@ npm run build
 | `--replay-runtime-events <path>` | Replay normalized runtime events from JSONL.             |
 | `--usage-update-used <tokens>`   | Emit a `usage_update` with this `used` count.            |
 | `--usage-update-size <tokens>`   | Set the `usage_update` size.                             |
+| `--usage-update-mode <mode>`     | Use `static` or `cumulative` usage values.               |
 | `--tool-call-count <count>`      | Emit this many `tool_call` and `tool_call_update` pairs. |
 | `--prompt-delay-ms <ms>`         | Delay the turn until cancelled or the timeout elapses.   |
 | `--append-file <path>`           | Append text to a file relative to the session cwd.       |
@@ -127,6 +129,7 @@ import { mockAgentArgs, mockAgentCommand, readJsonLines } from "acp-mock";
 const command = mockAgentCommand({
   agentMessageJson: { success: true },
   usageUpdateUsed: 100,
+  usageUpdateMode: "cumulative",
   toolCallCount: 3,
 });
 ```

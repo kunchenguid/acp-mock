@@ -16,7 +16,7 @@ import type {
   SetSessionModeResponse,
 } from "@agentclientprotocol/sdk";
 import { PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
-import type { AppendFileOptions } from "./index.js";
+import type { AppendFileOptions, UsageUpdateMode } from "./index.js";
 
 export interface AcpMockAgentOptions {
   eventLogPath?: string;
@@ -24,6 +24,7 @@ export interface AcpMockAgentOptions {
   agentMessage: string;
   usageUpdateUsed?: number;
   usageUpdateSize: number;
+  usageUpdateMode: UsageUpdateMode;
   toolCallCount: number;
   promptDelayMs?: number;
   appendFile?: AppendFileOptions;
@@ -32,6 +33,7 @@ export interface AcpMockAgentOptions {
 interface SessionState {
   cwd: string;
   pendingPrompt: AbortController | null;
+  promptCount: number;
 }
 
 interface RuntimeTraceEvent {
@@ -129,6 +131,7 @@ export class AcpMockAgent implements Agent {
     this.sessions.set(sessionId, {
       cwd: params.cwd,
       pendingPrompt: null,
+      promptCount: 0,
     });
     this.appendLog("agent:newSession", { sessionId, cwd: params.cwd });
     return { sessionId };
@@ -146,6 +149,7 @@ export class AcpMockAgent implements Agent {
     session.pendingPrompt?.abort();
     const controller = new AbortController();
     session.pendingPrompt = controller;
+    session.promptCount += 1;
     this.appendLog("agent:prompt:start", { sessionId: params.sessionId });
 
     try {
@@ -155,8 +159,9 @@ export class AcpMockAgent implements Agent {
 
       if (this.options.runtimeEventsPath) {
         await this.replayTraceFile(params.sessionId, session.cwd);
+        this.applyAppendFile(session.cwd);
       } else {
-        await this.emitUsage(params.sessionId);
+        await this.emitUsage(params.sessionId, session.promptCount);
         await this.emitToolCalls(params.sessionId);
         this.applyAppendFile(session.cwd);
         await this.connection.sessionUpdate({
@@ -184,18 +189,25 @@ export class AcpMockAgent implements Agent {
     }
   }
 
-  private async emitUsage(sessionId: string): Promise<void> {
+  private async emitUsage(
+    sessionId: string,
+    promptCount: number,
+  ): Promise<void> {
     if (this.options.usageUpdateUsed === undefined) return;
+    const used =
+      this.options.usageUpdateMode === "cumulative"
+        ? this.options.usageUpdateUsed * promptCount
+        : this.options.usageUpdateUsed;
     await this.connection.sessionUpdate({
       sessionId,
       update: {
         sessionUpdate: "usage_update",
-        used: this.options.usageUpdateUsed,
+        used,
         size: this.options.usageUpdateSize,
       },
     });
     this.appendLog("agent:prompt:usage", {
-      used: this.options.usageUpdateUsed,
+      used,
     });
   }
 

@@ -3,6 +3,8 @@ export interface AppendFileOptions {
   text: string;
 }
 
+export type UsageUpdateMode = "static" | "cumulative";
+
 export interface MockAgentCommandOptions {
   bin?: string;
   eventLogPath?: string;
@@ -11,6 +13,7 @@ export interface MockAgentCommandOptions {
   agentMessage?: string;
   usageUpdateUsed?: number;
   usageUpdateSize?: number;
+  usageUpdateMode?: UsageUpdateMode;
   toolCallCount?: number;
   promptDelayMs?: number;
   appendFile?: AppendFileOptions;
@@ -38,6 +41,9 @@ export function mockAgentArgs(options: MockAgentCommandOptions = {}): string[] {
   }
   pushNumberArg(args, "--usage-update-used", options.usageUpdateUsed);
   pushNumberArg(args, "--usage-update-size", options.usageUpdateSize);
+  if (options.usageUpdateMode) {
+    args.push("--usage-update-mode", options.usageUpdateMode);
+  }
   pushNumberArg(args, "--tool-call-count", options.toolCallCount);
   pushNumberArg(args, "--prompt-delay-ms", options.promptDelayMs);
   if (options.appendFile) {
