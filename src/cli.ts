@@ -88,7 +88,7 @@ function createProgram(): Command {
     )
     .option(
       "--usage-update-used <tokens>",
-      "emit a usage_update with this used count",
+      "set base used tokens for synthetic usage updates",
     )
     .option(
       "--usage-update-size <tokens>",
