@@ -33,7 +33,7 @@ export interface AcpMockAgentOptions {
 interface SessionState {
   cwd: string;
   pendingPrompt: AbortController | null;
-  promptCount: number;
+  usageUpdateCount: number;
 }
 
 interface RuntimeTraceEvent {
@@ -131,7 +131,7 @@ export class AcpMockAgent implements Agent {
     this.sessions.set(sessionId, {
       cwd: params.cwd,
       pendingPrompt: null,
-      promptCount: 0,
+      usageUpdateCount: 0,
     });
     this.appendLog("agent:newSession", { sessionId, cwd: params.cwd });
     return { sessionId };
@@ -149,7 +149,6 @@ export class AcpMockAgent implements Agent {
     session.pendingPrompt?.abort();
     const controller = new AbortController();
     session.pendingPrompt = controller;
-    session.promptCount += 1;
     this.appendLog("agent:prompt:start", { sessionId: params.sessionId });
 
     try {
@@ -161,7 +160,7 @@ export class AcpMockAgent implements Agent {
         await this.replayTraceFile(params.sessionId, session.cwd);
         this.applyAppendFile(session.cwd);
       } else {
-        await this.emitUsage(params.sessionId, session.promptCount);
+        await this.emitUsage(params.sessionId, session);
         await this.emitToolCalls(params.sessionId);
         this.applyAppendFile(session.cwd);
         await this.connection.sessionUpdate({
@@ -191,12 +190,13 @@ export class AcpMockAgent implements Agent {
 
   private async emitUsage(
     sessionId: string,
-    promptCount: number,
+    session: SessionState,
   ): Promise<void> {
     if (this.options.usageUpdateUsed === undefined) return;
+    const usageUpdateCount = session.usageUpdateCount + 1;
     const used =
       this.options.usageUpdateMode === "cumulative"
-        ? this.options.usageUpdateUsed * promptCount
+        ? this.options.usageUpdateUsed * usageUpdateCount
         : this.options.usageUpdateUsed;
     await this.connection.sessionUpdate({
       sessionId,
@@ -206,6 +206,7 @@ export class AcpMockAgent implements Agent {
         size: this.options.usageUpdateSize,
       },
     });
+    session.usageUpdateCount = usageUpdateCount;
     this.appendLog("agent:prompt:usage", {
       used,
     });

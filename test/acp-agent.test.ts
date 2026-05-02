@@ -29,6 +29,18 @@ function spawnMock(args: string[]): ChildProcess {
   });
 }
 
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 1000,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) return;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+  }
+  throw new Error("Timed out waiting for condition");
+}
+
 async function connect(child: ChildProcess): Promise<{
   connection: acp.ClientSideConnection;
   client: RecordingClient;
@@ -305,6 +317,52 @@ describe("acp mock agent", () => {
       { sessionUpdate: "usage_update", used: 100, size: 200000 },
       { sessionUpdate: "usage_update", used: 200, size: 200000 },
       { sessionUpdate: "usage_update", used: 300, size: 200000 },
+    ]);
+  });
+
+  it("does not count cancelled prompts toward cumulative usage_update values", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "acp-mock-usage-cancel-"));
+    const logPath = join(cwd, "mock.jsonl");
+    tempDirs.push(cwd);
+
+    const child = spawnMock([
+      "--event-log",
+      logPath,
+      "--usage-update-used",
+      "100",
+      "--usage-update-mode",
+      "cumulative",
+      "--prompt-delay-ms",
+      "100",
+    ]);
+    children.push(child);
+
+    const { connection, client } = await connect(child);
+    const session = await connection.newSession({ cwd, mcpServers: [] });
+    const cancelledPrompt = connection.prompt({
+      sessionId: session.sessionId,
+      prompt: [{ type: "text", text: "cancel" }],
+    });
+
+    await waitFor(() =>
+      readJsonLines(readFileSync(logPath, "utf-8")).some(
+        (entry) => entry.event === "agent:prompt:start",
+      ),
+    );
+    await connection.cancel({ sessionId: session.sessionId });
+    await expect(cancelledPrompt).resolves.toEqual({ stopReason: "cancelled" });
+
+    const result = await connection.prompt({
+      sessionId: session.sessionId,
+      prompt: [{ type: "text", text: "one" }],
+    });
+
+    expect(result.stopReason).toBe("end_turn");
+    const usageUpdates = client.updates
+      .map((entry) => entry.update)
+      .filter((update) => update.sessionUpdate === "usage_update");
+    expect(usageUpdates).toEqual([
+      { sessionUpdate: "usage_update", used: 100, size: 200000 },
     ]);
   });
 });
