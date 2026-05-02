@@ -67,7 +67,7 @@ function createProgram(): Command {
     .option("--event-log <path>", "write lifecycle JSONL logs")
     .option(
       "--replay-runtime-events <path>",
-      "replay normalized acpx runtime events from a JSONL trace",
+      "replay normalized runtime events from a JSONL trace",
     )
     .option(
       "--agent-message-json <json>",

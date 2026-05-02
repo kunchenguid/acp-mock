@@ -36,7 +36,7 @@ Point any ACP client at it, then assert on the exact session updates, logs, canc
 
 - **Real protocol** - speaks ACP over stdio using `@agentclientprotocol/sdk`.
 - **Deterministic turns** - emits fixed text, JSON, usage updates, tool calls, and workspace edits.
-- **Trace replay** - replays normalized `acpx` runtime JSONL events as ACP `session/update` notifications.
+- **Trace replay** - replays normalized runtime JSONL events as ACP `session/update` notifications.
 
 ## Quick Start
 
@@ -47,7 +47,7 @@ $ npx acp-mock --agent-message-json '{"success":true}' --usage-update-used 100
 # stdio now speaks ACP JSON-RPC to the client
 ```
 
-Use it from an `acpx` registry override:
+Use it from any ACP client configuration that accepts an agent command:
 
 ```json
 {
@@ -90,13 +90,13 @@ npm run build
       |
       +-- emit deterministic session/update events
       +-- append optional workspace changes
-      +-- replay optional acpx runtime traces
+      +-- replay optional runtime traces
       +-- write optional JSONL lifecycle logs
 ```
 
 - **Stdout is protocol-only** - normal runs write only ACP NDJSON to stdout.
 - **Logs are opt-in** - pass `--event-log <path>` when tests need lifecycle assertions.
-- **Traces are normalized** - pass `--replay-runtime-events <path>` with one `acpx` runtime event per line.
+- **Traces are normalized** - pass `--replay-runtime-events <path>` with one runtime event per line.
 
 ## CLI Reference
 
@@ -111,7 +111,7 @@ npm run build
 | `--event-log <path>`             | Write lifecycle JSONL logs.                              |
 | `--agent-message-json <json>`    | Emit this JSON object as an `agent_message_chunk`.       |
 | `--agent-message <text>`         | Emit this text as an `agent_message_chunk`.              |
-| `--replay-runtime-events <path>` | Replay normalized `acpx` runtime events from JSONL.      |
+| `--replay-runtime-events <path>` | Replay normalized runtime events from JSONL.             |
 | `--usage-update-used <tokens>`   | Emit a `usage_update` with this `used` count.            |
 | `--usage-update-size <tokens>`   | Set the `usage_update` size.                             |
 | `--tool-call-count <count>`      | Emit this many `tool_call` and `tool_call_update` pairs. |
@@ -131,7 +131,7 @@ const command = mockAgentCommand({
 });
 ```
 
-`mockAgentCommand()` is useful when a test needs to write an `acpx` config override.
+`mockAgentCommand()` is useful when a test needs to write an ACP client config override.
 `mockAgentArgs()` is useful when a test spawns the binary directly.
 `readJsonLines()` parses lifecycle logs written by `--event-log`.
 

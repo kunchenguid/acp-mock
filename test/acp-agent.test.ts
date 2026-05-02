@@ -160,7 +160,7 @@ describe("acp mock agent", () => {
     expect(logEvents).toContain("agent:prompt:cancelled");
   });
 
-  it("replays normalized acpx runtime trace events as ACP session updates", async () => {
+  it("replays normalized runtime trace events as ACP session updates", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "acp-mock-trace-"));
     const tracePath = join(cwd, "trace.jsonl");
     tempDirs.push(cwd);

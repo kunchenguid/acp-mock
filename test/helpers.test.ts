@@ -34,7 +34,7 @@ describe("test helpers", () => {
     ]);
   });
 
-  it("builds a shell-safe command for acpx registry overrides", () => {
+  it("builds a shell-safe command for ACP client config overrides", () => {
     expect(
       mockAgentCommand({
         bin: "/tmp/acp mock/bin.js",
