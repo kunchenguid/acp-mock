@@ -113,13 +113,17 @@ npm run build
 | `--agent-message-json <json>`    | Emit this JSON object as an `agent_message_chunk`.       |
 | `--agent-message <text>`         | Emit this text as an `agent_message_chunk`.              |
 | `--replay-runtime-events <path>` | Replay normalized runtime events from JSONL.             |
-| `--usage-update-used <tokens>`   | Emit a `usage_update` with this `used` count.            |
+| `--usage-update-used <tokens>`   | Set base `used` tokens for synthetic usage updates.      |
 | `--usage-update-size <tokens>`   | Set the `usage_update` size.                             |
-| `--usage-update-mode <mode>`     | Use `static` or `cumulative` usage values.               |
+| `--usage-update-mode <mode>`     | Set `static` or `cumulative` used-token behavior.        |
 | `--tool-call-count <count>`      | Emit this many `tool_call` and `tool_call_update` pairs. |
 | `--prompt-delay-ms <ms>`         | Delay the turn until cancelled or the timeout elapses.   |
 | `--append-file <path>`           | Append text to a file relative to the session cwd.       |
 | `--append-text <text>`           | Text to append when `--append-file` is set.              |
+
+Usage updates are emitted only when `--usage-update-used` is set on synthetic turns.
+`--usage-update-mode` defaults to `static`, which repeats that used value for each successful prompt.
+Use `cumulative` to emit `used * successful prompt count` per session; cancelled prompts do not increment the count.
 
 ## Library Helpers
 
