@@ -4,6 +4,7 @@ import { Readable, Writable } from "node:stream";
 import { AgentSideConnection, ndJsonStream } from "@agentclientprotocol/sdk";
 import { Command } from "commander";
 import { AcpMockAgent, type AcpMockAgentOptions } from "./mock-agent.js";
+import type { UsageUpdateMode } from "./index.js";
 
 interface CliOptions {
   eventLog?: string;
@@ -12,10 +13,17 @@ interface CliOptions {
   agentMessage?: string;
   usageUpdateUsed?: string;
   usageUpdateSize?: string;
+  usageUpdateMode?: string;
   toolCallCount?: string;
   promptDelayMs?: string;
   appendFile?: string;
   appendText?: string;
+}
+
+function parseUsageUpdateMode(value: string | undefined): UsageUpdateMode {
+  if (value === undefined) return "static";
+  if (value === "static" || value === "cumulative") return value;
+  throw new Error("--usage-update-mode must be either static or cumulative");
 }
 
 function parseOptionalNumber(
@@ -53,6 +61,7 @@ function parseOptions(raw: CliOptions): AcpMockAgentOptions {
     ),
     usageUpdateSize:
       parseOptionalNumber("--usage-update-size", raw.usageUpdateSize) ?? 200000,
+    usageUpdateMode: parseUsageUpdateMode(raw.usageUpdateMode),
     toolCallCount:
       parseOptionalNumber("--tool-call-count", raw.toolCallCount) ?? 0,
     promptDelayMs: parseOptionalNumber("--prompt-delay-ms", raw.promptDelayMs),
@@ -79,12 +88,17 @@ function createProgram(): Command {
     )
     .option(
       "--usage-update-used <tokens>",
-      "emit a usage_update with this used count",
+      "set base used tokens for synthetic usage updates",
     )
     .option(
       "--usage-update-size <tokens>",
       "usage_update context size",
       "200000",
+    )
+    .option(
+      "--usage-update-mode <mode>",
+      "usage_update used behavior: static or cumulative",
+      "static",
     )
     .option(
       "--tool-call-count <count>",

@@ -40,6 +40,7 @@ describe("cli", () => {
     expect(result.stdout).toContain("Usage: acp-mock");
     expect(result.stdout).toContain("--agent-message-json");
     expect(result.stdout).toContain("--usage-update-used");
+    expect(result.stdout).toContain("--usage-update-mode");
     expect(result.stdout).toContain("--prompt-delay-ms");
     expect(result.stdout).not.toContain("acp-mock: (outputHelp)");
     expect(result.stderr).toBe("");
