@@ -1,6 +1,6 @@
 {
   "name": "acp-mock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Deterministic ACP mock agent for end-to-end tests",
   "type": "module",
   "bin": {
