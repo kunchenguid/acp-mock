@@ -13,24 +13,24 @@ Node 20+, TypeScript, ESM-only.
 ## Commands
 
 ```sh
-npm run build         # tsdown bundle of src/index.ts + src/cli.ts to dist/ with .d.ts
-npm run dev           # tsdown --watch
-npm test              # vitest run (one-shot)
-npm run typecheck     # tsc -p tsconfig.json --noEmit
-npm run lint          # eslint .
-npm run format:check  # prettier --check .
-npm run format        # prettier --write .
-npm run check         # lint + format:check + typecheck + test + build
+pnpm run build         # tsdown bundle of src/index.ts + src/cli.ts to dist/ with .d.ts
+pnpm run dev           # tsdown --watch
+pnpm test              # vitest run (one-shot)
+pnpm run typecheck     # tsc -p tsconfig.json --noEmit
+pnpm run lint          # eslint .
+pnpm run format:check  # prettier --check .
+pnpm run format        # prettier --write .
+pnpm run check         # lint + format:check + typecheck + test + build
 ```
 
 Run a single test file or filter:
 
 ```sh
-npx vitest run test/cli.test.ts
-npx vitest run -t "prints clean help"
+pnpm exec vitest run test/cli.test.ts
+pnpm exec vitest run -t "prints clean help"
 ```
 
-The CLI tests in `test/cli.test.ts` spawn `src/cli.ts` directly via `node --import tsx`, so you do not need to `npm run build` before running tests.
+The CLI tests in `test/cli.test.ts` spawn `src/cli.ts` directly via `node --import tsx`, so you do not need to `pnpm run build` before running tests.
 
 ## Architecture
 
