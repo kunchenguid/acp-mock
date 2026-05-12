@@ -1,0 +1,11 @@
+packages:
+  - "."
+
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+minimumReleaseAgeExclude:
+  - acp-mock
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

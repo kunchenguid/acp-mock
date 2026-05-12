@@ -41,9 +41,9 @@ Point any ACP client at it, then assert on the exact session updates, logs, canc
 ## Quick Start
 
 ```sh
-$ npm install -D acp-mock
+$ pnpm add -D acp-mock
 
-$ npx acp-mock --agent-message-json '{"success":true}' --usage-update-used 100
+$ pnpm exec acp-mock --agent-message-json '{"success":true}' --usage-update-used 100
 # stdio now speaks ACP JSON-RPC to the client
 ```
 
@@ -53,7 +53,7 @@ Use it from any ACP client configuration that accepts an agent command:
 {
   "agents": {
     "mock": {
-      "command": "npx acp-mock --agent-message-json '{\"success\":true}'"
+      "command": "pnpm exec acp-mock --agent-message-json '{\"success\":true}'"
     }
   }
 }
@@ -61,10 +61,10 @@ Use it from any ACP client configuration that accepts an agent command:
 
 ## Install
 
-**npm**
+**pnpm**
 
 ```sh
-npm install -D acp-mock
+pnpm add -D acp-mock
 ```
 
 **From source**
@@ -72,8 +72,8 @@ npm install -D acp-mock
 ```sh
 git clone https://github.com/kunchenguid/acp-mock.git
 cd acp-mock
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## How It Works
@@ -145,10 +145,10 @@ const command = mockAgentCommand({
 ## Development
 
 ```sh
-npm run build # Build dist files
-npm test # Run tests
-npm run typecheck # Type-check source and tests
-npm run lint # Run ESLint
-npm run format:check # Check formatting
-npm run check # Run all verification steps
+pnpm run build # Build dist files
+pnpm test # Run tests
+pnpm run typecheck # Type-check source and tests
+pnpm run lint # Run ESLint
+pnpm run format:check # Check formatting
+pnpm run check # Run all verification steps
 ```
