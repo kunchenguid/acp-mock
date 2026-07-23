@@ -7,11 +7,11 @@ event, an unsigned `edited` event, and a signed `edited` event.
 
 ## Event results
 
-| Run ID | Run number | Action | Concurrency group | Conclusion |
-| ---: | ---: | --- | --- | --- |
-| `29962844999` | 586 | opened | `no-mistakes-required-549-29962844999` | success |
-| `29962943078` | 587 | edited | `no-mistakes-required-549-29962943078` | failure |
-| `29965243268` | 588 | edited | `no-mistakes-required-549-29965243268` | success |
+|        Run ID | Run number | Action | Concurrency group                      | Conclusion |
+| ------------: | ---------: | ------ | -------------------------------------- | ---------- |
+| `29962844999` |        586 | opened | `no-mistakes-required-549-29962844999` | success    |
+| `29962943078` |        587 | edited | `no-mistakes-required-549-29962943078` | failure    |
+| `29965243268` |        588 | edited | `no-mistakes-required-549-29965243268` | success    |
 
 All three body-bearing events have immutable, distinct concurrency groups, so
 none can replace or cancel another same-PR body event.
