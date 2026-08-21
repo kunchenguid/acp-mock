@@ -49,7 +49,7 @@ Key invariants to preserve when editing:
 ## Conventions
 
 - Conventional Commits. `release-please` regenerates `CHANGELOG.md` and `.release-please-manifest.json` - never hand-edit those files.
-- Human-authored PRs targeting `main` must be pushed through the [`no-mistakes`](https://github.com/kunchenguid/no-mistakes) gate (`git push no-mistakes`); a `Require no-mistakes` GitHub Actions check enforces the signature on PRs. Release-please and dependency bots are exempt.
+- Human-authored PRs targeting `main` must be pushed through the [`no-mistakes`](https://github.com/kunchenguid/no-mistakes) gate (`git push no-mistakes`); a `Require no-mistakes` GitHub Actions check enforces the signature and a v1 pipeline step attestation whose `head_sha` matches the current PR head and whose `review`, `test`, and `document` steps are `completed`. Release-please and dependency bots are exempt.
 - TDD for bug fixes and new features.
 - PR workflows ignore the release-please output set (`.release-please-manifest.json`, `CHANGELOG.md`, `package.json`) via `pull_request.paths-ignore` so release PRs create zero runs. Keep that set in sync: `scripts/check-release-ci-exclusions.sh` (wired early in `ci.yml`) derives expected paths from `release-please-config.json` and fails if any `pull_request` workflow is missing one.
 
