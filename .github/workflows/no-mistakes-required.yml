@@ -43,6 +43,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -eu
           marker='Updates from [git push no-mistakes](https://github.com/kunchenguid/no-mistakes)'
@@ -71,6 +72,7 @@ jobs:
 
           body = os.environ.get("PR_BODY") or ""
           author = os.environ.get("PR_AUTHOR") or ""
+          expected_head_sha = (os.environ.get("PR_HEAD_SHA") or "").strip().replace("\r", "")
           version_floor = (
               "This repository requires no-mistakes >= 1.46.0 "
               "(https://github.com/kunchenguid/no-mistakes/pull/670). "
@@ -126,9 +128,12 @@ jobs:
                   ],
               )
 
-          head_sha = payload.get("head_sha")
+          raw_head_sha = payload.get("head_sha")
+          attested_head_sha = (
+              raw_head_sha.strip() if isinstance(raw_head_sha, str) else ""
+          )
           steps = payload.get("steps")
-          if not isinstance(head_sha, str) or not head_sha.strip() or not isinstance(steps, list):
+          if not isinstance(steps, list):
               fail(
                   "This PR has the no-mistakes signature but no parseable pipeline step attestation.",
                   [
@@ -161,6 +166,22 @@ jobs:
                   continue
               statuses[name] = status if isinstance(status, str) and status else "missing"
 
+          if (
+              not attested_head_sha
+              or not expected_head_sha
+              or attested_head_sha != expected_head_sha
+          ):
+              fail(
+                  "This PR's no-mistakes pipeline attestation is not bound to the current pull request head.",
+                  [
+                      "The attestation head_sha must equal the current pull request head SHA so a later push cannot pass on a stale attestation.",
+                      f"  attestation head_sha: {attested_head_sha or '(missing)'}",
+                      f"  pull request head:    {expected_head_sha or '(missing)'}",
+                      "",
+                      "Re-run 'git push no-mistakes' on the current head so the PR body attestation is rewritten for this commit.",
+                  ],
+              )
+
           required = ("review", "test", "document")
           incomplete = []
           for name in required:
@@ -182,6 +203,7 @@ jobs:
               )
 
           print(
-              "Found valid no-mistakes pipeline attestation with review, test, and document completed."
+              "Found valid no-mistakes pipeline attestation with review, test, and document completed "
+              f"bound to head {expected_head_sha}."
           )
           PY

@@ -18,6 +18,7 @@ const ATTESTATION_PREFIX = "<!-- no-mistakes-pipeline-attestation:v1";
 const VERSION_FLOOR = "no-mistakes >= 1.46.0";
 const ATTESTATION_PR = "https://github.com/kunchenguid/no-mistakes/pull/670";
 const HEAD_SHA = "0123456789abcdef0123456789abcdef01234567";
+const OTHER_HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 const COMPLETED_STEPS = [
   { step: "intent", status: "completed" },
@@ -72,7 +73,10 @@ function pipelineBody(parts: {
   return `${lines.join("\n")}\n`;
 }
 
-function runGate(prBody: string): {
+function runGate(
+  prBody: string,
+  options: { prHeadSha?: string | null } = {},
+): {
   status: number | null;
   stdout: string;
   stderr: string;
@@ -80,15 +84,21 @@ function runGate(prBody: string): {
   const dir = mkdtempSync(join(tmpdir(), "nm-required-gate-"));
   const scriptPath = join(dir, "gate.sh");
   writeFileSync(scriptPath, extractRunScript(workflow));
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PR_BODY: prBody,
+    PR_AUTHOR: "alice",
+    PR_NUMBER: "42",
+  };
+  if (options.prHeadSha === null) {
+    delete env.PR_HEAD_SHA;
+  } else {
+    env.PR_HEAD_SHA = options.prHeadSha ?? HEAD_SHA;
+  }
   try {
     const result = spawnSync("bash", [scriptPath], {
       encoding: "utf8",
-      env: {
-        ...process.env,
-        PR_BODY: prBody,
-        PR_AUTHOR: "alice",
-        PR_NUMBER: "42",
-      },
+      env,
     });
     return {
       status: result.status,
@@ -139,10 +149,55 @@ describe("no-mistakes-required gate", () => {
       }),
     );
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain(VERSION_FLOOR);
+    expect(result.stderr).toContain(
+      "not bound to the current pull request head",
+    );
+    expect(result.stderr).toContain("attestation head_sha: (missing)");
+    expect(result.stderr).toContain(HEAD_SHA);
+    expect(result.stderr).not.toContain(VERSION_FLOOR);
   });
 
-  it("accepts a signature plus completed review, test, and document steps", () => {
+  it("fails when attestation head_sha is empty", () => {
+    const result = runGate(
+      pipelineBody({ comment: attestationComment(COMPLETED_STEPS, "") }),
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "not bound to the current pull request head",
+    );
+    expect(result.stderr).toContain("attestation head_sha: (missing)");
+    expect(result.stderr).not.toContain(VERSION_FLOOR);
+  });
+
+  it("fails when attestation head_sha does not match the current PR head", () => {
+    const result = runGate(
+      pipelineBody({ comment: attestationComment(COMPLETED_STEPS) }),
+      { prHeadSha: OTHER_HEAD_SHA },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "not bound to the current pull request head",
+    );
+    expect(result.stderr).toContain("stale attestation");
+    expect(result.stderr).toContain(HEAD_SHA);
+    expect(result.stderr).toContain(OTHER_HEAD_SHA);
+    expect(result.stderr).not.toContain(VERSION_FLOOR);
+  });
+
+  it("fails when the current PR head SHA is missing", () => {
+    const result = runGate(
+      pipelineBody({ comment: attestationComment(COMPLETED_STEPS) }),
+      { prHeadSha: null },
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "not bound to the current pull request head",
+    );
+    expect(result.stderr).toContain("pull request head:    (missing)");
+    expect(result.stderr).not.toContain(VERSION_FLOOR);
+  });
+
+  it("accepts a signature plus completed review, test, and document steps bound to the PR head", () => {
     const result = runGate(
       pipelineBody({ comment: attestationComment(COMPLETED_STEPS) }),
     );
@@ -151,6 +206,7 @@ describe("no-mistakes-required gate", () => {
       "Found no-mistakes signature in PR #42 body.",
     );
     expect(result.stdout).toMatch(/attestation/);
+    expect(result.stdout).toContain(HEAD_SHA);
   });
 
   it.each([
