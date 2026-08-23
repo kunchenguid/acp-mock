@@ -1,240 +1,81 @@
-import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const workflow = readFileSync(
-  join(repoRoot, ".github", "workflows", "no-mistakes-required.yml"),
-  "utf8",
+const workflowPath = join(
+  repoRoot,
+  ".github",
+  "workflows",
+  "no-mistakes-required.yml",
 );
 
-const SIGNATURE =
-  "Updates from [git push no-mistakes](https://github.com/kunchenguid/no-mistakes)";
-const ATTESTATION_PREFIX = "<!-- no-mistakes-pipeline-attestation:v1";
-const VERSION_FLOOR = "no-mistakes >= 1.46.0";
-const ATTESTATION_PR = "https://github.com/kunchenguid/no-mistakes/pull/670";
-const HEAD_SHA = "0123456789abcdef0123456789abcdef01234567";
-const OTHER_HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-
-const COMPLETED_STEPS = [
-  { step: "intent", status: "completed" },
-  { step: "rebase", status: "completed" },
-  { step: "review", status: "completed" },
-  { step: "test", status: "completed" },
-  { step: "document", status: "completed" },
-  { step: "lint", status: "completed" },
-  { step: "push", status: "completed" },
-  { step: "pr", status: "running" },
-  { step: "ci", status: "pending" },
-];
-
-function extractRunScript(yaml: string): string {
-  const lines = yaml.split("\n");
-  const start = lines.findIndex((line) => /^\s+run:\s*\|/.test(line));
-  if (start < 0) {
-    throw new Error("workflow has no run script");
-  }
-  const body: string[] = [];
-  let indent: number | null = null;
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.trim() === "") {
-      if (indent !== null) body.push("");
-      continue;
-    }
-    const leading = /^\s*/.exec(line)?.[0].length ?? 0;
-    if (indent === null) indent = leading;
-    if (leading < indent) break;
-    body.push(line.slice(indent));
-  }
-  return body.join("\n");
-}
-
-function attestationComment(
-  steps: Array<{ step: string; status: string }>,
-  headSha = HEAD_SHA,
-): string {
-  return `${ATTESTATION_PREFIX} ${JSON.stringify({ head_sha: headSha, steps })} -->`;
-}
-
-function pipelineBody(parts: {
-  signature?: boolean;
-  comment?: string;
-  extra?: string;
-}): string {
-  const lines = ["## Pipeline", ""];
-  if (parts.signature !== false) lines.push(SIGNATURE);
-  if (parts.comment) lines.push(parts.comment);
-  if (parts.extra) lines.push(parts.extra);
-  return `${lines.join("\n")}\n`;
-}
-
-function runGate(
-  prBody: string,
-  options: { prHeadSha?: string | null } = {},
-): {
-  status: number | null;
-  stdout: string;
-  stderr: string;
-} {
-  const dir = mkdtempSync(join(tmpdir(), "nm-required-gate-"));
-  const scriptPath = join(dir, "gate.sh");
-  writeFileSync(scriptPath, extractRunScript(workflow));
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    PR_BODY: prBody,
-    PR_AUTHOR: "alice",
-    PR_NUMBER: "42",
-  };
-  if (options.prHeadSha === null) {
-    delete env.PR_HEAD_SHA;
-  } else {
-    env.PR_HEAD_SHA = options.prHeadSha ?? HEAD_SHA;
-  }
-  try {
-    const result = spawnSync("bash", [scriptPath], {
-      encoding: "utf8",
-      env,
-    });
-    return {
-      status: result.status,
-      stdout: result.stdout,
-      stderr: result.stderr,
+interface WorkflowModel {
+  on: { pull_request: unknown };
+  permissions: unknown;
+  concurrency: unknown;
+  jobs: {
+    check: {
+      name: unknown;
+      "runs-on": unknown;
+      if: unknown;
+      steps: unknown;
     };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  };
 }
 
-describe("no-mistakes-required gate", () => {
-  it("fails unsigned PRs without treating them as an old no-mistakes client", () => {
-    const result = runGate("Please merge this change.");
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "This PR was not raised through no-mistakes.",
-    );
-    expect(result.stderr).toContain("git push no-mistakes");
-    expect(result.stderr).toContain("CONTRIBUTING.md");
-    expect(result.stderr).not.toContain(VERSION_FLOOR);
+function loadWorkflow(): WorkflowModel {
+  const ruby = String.raw`
+    require "json"
+    require "psych"
+    workflow = Psych.safe_load(File.read(ARGV.fetch(0)), aliases: true)
+    # Psych implements YAML 1.1, where the unquoted GitHub Actions key "on" is
+    # parsed as boolean true. Normalize it to the Actions data model.
+    workflow["on"] = workflow.delete(true) if workflow.key?(true)
+    puts JSON.generate(workflow)
+  `;
+  const result = spawnSync("ruby", ["-e", ruby, workflowPath], {
+    encoding: "utf8",
   });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || "failed to parse workflow YAML");
+  }
+  return JSON.parse(result.stdout) as WorkflowModel;
+}
 
-  it("fails signature-only bodies from older no-mistakes clients", () => {
-    const result = runGate(pipelineBody({}));
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(VERSION_FLOOR);
-    expect(result.stderr).toContain(ATTESTATION_PR);
-    expect(result.stderr).toContain("only writes the signature");
-  });
+describe("no-mistakes-required workflow", () => {
+  it("calls the pinned shared gate with the repository's existing policy boundary", () => {
+    const workflow = loadWorkflow();
+    const pullRequest = workflow.on.pull_request;
+    const job = workflow.jobs.check;
 
-  it("fails when the attestation comment is not parseable JSON", () => {
-    const result = runGate(
-      pipelineBody({
-        comment: `${ATTESTATION_PREFIX} {not-json} -->`,
-      }),
-    );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(VERSION_FLOOR);
-    expect(result.stderr).toContain(ATTESTATION_PR);
-    expect(result.stderr).toMatch(/could not parse|not parseable|unparseable/i);
-  });
+    expect(pullRequest).toEqual({
+      types: ["opened", "edited", "reopened"],
+      branches: ["main"],
+      "paths-ignore": [
+        ".release-please-manifest.json",
+        "CHANGELOG.md",
+        "package.json",
+      ],
+    });
+    expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.concurrency).toEqual({
+      group:
+        "no-mistakes-required-${{ github.event.pull_request.number }}-${{ (github.event.action == 'opened' || github.event.action == 'edited') && github.run_id || 'head-change' }}",
+      "cancel-in-progress": true,
+    });
 
-  it("fails when attestation JSON is missing head_sha", () => {
-    const result = runGate(
-      pipelineBody({
-        comment: `${ATTESTATION_PREFIX} ${JSON.stringify({ steps: COMPLETED_STEPS })} -->`,
-      }),
+    expect(job.name).toBe("PR must be raised via no-mistakes");
+    expect(job["runs-on"]).toBe("ubuntu-latest");
+    expect(job.if).toBe(
+      "github.event.pull_request.user.login != 'github-actions[bot]' && github.event.pull_request.user.login != 'dependabot[bot]' && github.event.pull_request.user.login != 'release-please[bot]'",
     );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "not bound to the current pull request head",
-    );
-    expect(result.stderr).toContain("attestation head_sha: (missing)");
-    expect(result.stderr).toContain(HEAD_SHA);
-    expect(result.stderr).not.toContain(VERSION_FLOOR);
-  });
-
-  it("fails when attestation head_sha is empty", () => {
-    const result = runGate(
-      pipelineBody({ comment: attestationComment(COMPLETED_STEPS, "") }),
-    );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "not bound to the current pull request head",
-    );
-    expect(result.stderr).toContain("attestation head_sha: (missing)");
-    expect(result.stderr).not.toContain(VERSION_FLOOR);
-  });
-
-  it("fails when attestation head_sha does not match the current PR head", () => {
-    const result = runGate(
-      pipelineBody({ comment: attestationComment(COMPLETED_STEPS) }),
-      { prHeadSha: OTHER_HEAD_SHA },
-    );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "not bound to the current pull request head",
-    );
-    expect(result.stderr).toContain("stale attestation");
-    expect(result.stderr).toContain(HEAD_SHA);
-    expect(result.stderr).toContain(OTHER_HEAD_SHA);
-    expect(result.stderr).not.toContain(VERSION_FLOOR);
-  });
-
-  it("fails when the current PR head SHA is missing", () => {
-    const result = runGate(
-      pipelineBody({ comment: attestationComment(COMPLETED_STEPS) }),
-      { prHeadSha: null },
-    );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(
-      "not bound to the current pull request head",
-    );
-    expect(result.stderr).toContain("pull request head:    (missing)");
-    expect(result.stderr).not.toContain(VERSION_FLOOR);
-  });
-
-  it("accepts a signature plus completed review, test, and document steps bound to the PR head", () => {
-    const result = runGate(
-      pipelineBody({ comment: attestationComment(COMPLETED_STEPS) }),
-    );
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    expect(result.stdout).toContain(
-      "Found no-mistakes signature in PR #42 body.",
-    );
-    expect(result.stdout).toMatch(/attestation/);
-    expect(result.stdout).toContain(HEAD_SHA);
-  });
-
-  it.each([
-    ["review", "skipped"],
-    ["test", "failed"],
-    ["document", "pending"],
-    ["review", "running"],
-  ] as const)("fails when %s is %s", (step, status) => {
-    const steps = COMPLETED_STEPS.map((item) =>
-      item.step === step ? { ...item, status } : item,
-    );
-    const result = runGate(
-      pipelineBody({ comment: attestationComment(steps) }),
-    );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(`${step} status=${status}`);
-    expect(result.stderr).toContain(
-      "Quota skips and agent skips are not compliant",
-    );
-    expect(result.stderr).not.toContain(VERSION_FLOOR);
-  });
-
-  it("fails when a required step is missing from the attestation", () => {
-    const steps = COMPLETED_STEPS.filter((item) => item.step !== "document");
-    const result = runGate(
-      pipelineBody({ comment: attestationComment(steps) }),
-    );
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("document status=missing");
+    expect(job.steps).toEqual([
+      {
+        name: "Verify no-mistakes signature and pipeline attestation in PR body",
+        uses: "kunchenguid/no-mistakes/.github/actions/require-no-mistakes@32d396ac0f29135daf7fcb9964aba9d5f4e796d6",
+      },
+    ]);
   });
 });
