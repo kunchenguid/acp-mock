@@ -1,0 +1,13 @@
+{
+  "pull_request": {
+    "number": 43,
+    "body": "Please merge this change.",
+    "head": {
+      "sha": "0123456789abcdef0123456789abcdef01234567",
+      "ref": "fm/bypass"
+    },
+    "user": {
+      "login": "alice"
+    }
+  }
+}
