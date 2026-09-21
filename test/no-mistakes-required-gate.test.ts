@@ -51,7 +51,7 @@ describe("no-mistakes-required workflow", () => {
     const job = workflow.jobs.check;
 
     expect(pullRequest).toEqual({
-      types: ["opened", "edited", "reopened"],
+      types: ["opened", "edited", "synchronize", "reopened"],
       branches: ["main"],
       "paths-ignore": [
         ".release-please-manifest.json",
@@ -59,7 +59,10 @@ describe("no-mistakes-required workflow", () => {
         "package.json",
       ],
     });
-    expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.permissions).toEqual({
+      contents: "read",
+      "pull-requests": "read",
+    });
     expect(workflow.concurrency).toEqual({
       group:
         "no-mistakes-required-${{ github.event.pull_request.number }}-${{ (github.event.action == 'opened' || github.event.action == 'edited') && github.run_id || 'head-change' }}",
@@ -74,7 +77,7 @@ describe("no-mistakes-required workflow", () => {
     expect(job.steps).toEqual([
       {
         name: "Verify no-mistakes signature and pipeline attestation in PR body",
-        uses: "kunchenguid/no-mistakes/.github/actions/require-no-mistakes@32d396ac0f29135daf7fcb9964aba9d5f4e796d6",
+        uses: "kunchenguid/no-mistakes/.github/actions/require-no-mistakes@f6441c96c352a18b9cadcaef6b6c7017e9ac3970",
       },
     ]);
   });
